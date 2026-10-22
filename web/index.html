@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jira Worklog Report</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <!-- Sign-in: each user's own Atlassian email + API token (kept in this browser, sent with every request). -->
+    <section id="login" class="login" hidden>
+      <form id="login-form" class="login-card" novalidate>
+        <h1>Jira Worklog Report</h1>
+        <p class="login-lead">Sign in with your Atlassian account.</p>
+        <p id="login-note" class="notice notice-warn" role="status" hidden></p>
+        <label>
+          <span>Atlassian email</span>
+          <input type="email" id="login-email" name="email" autocomplete="username" required />
+        </label>
+        <label>
+          <span>API token</span>
+          <input type="password" id="login-token" name="token" autocomplete="current-password" spellcheck="false" required />
+        </label>
+        <label class="login-check"><input type="checkbox" id="login-show" /> Show token</label>
+        <label class="login-check"><input type="checkbox" id="login-remember" checked /> Keep me signed in on this browser</label>
+        <p id="login-error" class="notice notice-error" role="alert" hidden></p>
+        <button type="submit" id="login-submit">Sign in</button>
+        <p class="login-token-link">
+          Don't have API Key Token? Generate from
+          <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer">here</a>
+        </p>
+        <p class="login-help">
+          Your token is kept in this browser only and is sent to this server with each request so it can read Jira as you; it is never stored on the server.
+        </p>
+      </form>
+    </section>
+
+    <div id="app" hidden>
+    <header class="app-header">
+      <h1>Jira Worklog Report</h1>
+      <div class="app-header-right">
+        <!-- Shown only when the server has more than one site (JIRA_SITES). -->
+        <label id="site-field" class="site-field" hidden>
+          <span>Jira site</span>
+          <select id="site"></select>
+        </label>
+        <span class="who-box">
+          <span id="who" class="who"></span>
+          <button type="button" id="signout" class="secondary">Sign out</button>
+        </span>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="Reports">
+      <button type="button" role="tab" id="tabbtn-teamall" aria-controls="tab-teamall" aria-selected="false" tabindex="-1" hidden>Team Reports</button>
+      <button type="button" role="tab" id="tabbtn-team" aria-controls="tab-team" aria-selected="true" hidden>Team Reports</button>
+      <button type="button" role="tab" id="tabbtn-advance" aria-controls="tab-advance" aria-selected="false" tabindex="-1">Advance Report</button>
+      <button type="button" role="tab" id="tabbtn-list" aria-controls="tab-list" aria-selected="false" tabindex="-1">List</button>
+    </nav>
+
+    <main>
+      <section id="tab-advance" role="tabpanel" aria-labelledby="tabbtn-advance" hidden>
+        <form id="ar-form" class="cr-form" novalidate>
+          <fieldset class="cr-box">
+            <legend>Filter (every sheet)</legend>
+            <div class="filters cr-filters">
+              <label>
+                <span>From</span>
+                <input type="date" id="ar-from" required />
+              </label>
+              <label>
+                <span>To</span>
+                <input type="date" id="ar-to" required />
+              </label>
+              <div class="field field-users">
+                <span id="ar-projects-label">Projects</span>
+                <div id="ar-projects"></div>
+              </div>
+              <div class="field field-users">
+                <span id="ar-users-label">Users</span>
+                <div id="ar-users"></div>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="cr-box">
+            <legend>Template</legend>
+            <div class="cr-tpl-bar">
+              <label class="cr-tpl-pick">
+                <span id="ar-template-label">Template</span>
+                <span class="cr-tpl-select">
+                  <select id="ar-template" aria-describedby="ar-dirty-text"></select>
+                  <span id="ar-dirty" class="cr-dirty" aria-hidden="true" title="Unsaved changes" hidden>●</span>
+                  <span id="ar-dirty-text" class="sr-only"></span>
+                </span>
+              </label>
+              <div class="cr-tpl-actions">
+                <button type="button" id="ar-tpl-save" class="secondary">Save</button>
+                <button type="button" id="ar-tpl-saveas" class="secondary">Save as…</button>
+                <button type="button" id="ar-tpl-rename" class="secondary">Rename…</button>
+                <button type="button" id="ar-tpl-delete" class="secondary">Delete</button>
+                <button type="button" id="ar-tpl-default" class="secondary">Set default</button>
+              </div>
+            </div>
+            <p id="ar-tpl-note" class="cr-tpl-note"></p>
+            <ul id="ar-tpl-warnings" class="cr-warning-list cr-tpl-warnings" hidden></ul>
+
+            <div class="cr-sheets">
+              <div class="cr-sheet-nav">
+                <span id="ar-sheet-list-label" class="cr-sub">Sheets</span>
+                <div id="ar-sheet-list" class="cr-sheet-list" role="group" aria-labelledby="ar-sheet-list-label"></div>
+                <button type="button" id="ar-add-sheet" class="secondary">+ Add sheet</button>
+              </div>
+              <div id="ar-sheet-panel" class="cr-sheet-panel"></div>
+            </div>
+          </fieldset>
+
+          <button type="submit" id="ar-generate">Generate</button>
+        </form>
+
+        <p id="ar-meta-error" class="notice notice-warn" hidden></p>
+        <p id="ar-error" class="notice notice-error" role="alert" hidden></p>
+        <p id="ar-info" class="notice notice-warn" role="status" hidden></p>
+
+        <div id="ar-loading" class="loading" hidden>
+          <span class="spinner" aria-hidden="true"></span>
+          <span id="ar-loading-text" aria-live="polite">Generating report…</span>
+          <progress id="ar-loading-bar" max="1" value="0" hidden></progress>
+          <button type="button" id="ar-cancel" class="secondary">Cancel</button>
+        </div>
+
+        <section id="ar-incomplete" class="notice notice-error" hidden role="alert">
+          <strong>⚠ Incomplete report</strong>
+          <span>— worklogs could not be fetched for these issues, so the totals below are too low:</span>
+          <code id="ar-failed-keys"></code>
+          <span id="ar-failure-reasons" class="reasons"></span>
+          <button type="button" id="ar-retry">Retry</button>
+        </section>
+
+        <section id="ar-warnings" class="notice notice-warn" hidden role="status">
+          <strong>Note</strong>
+          <ul id="ar-warning-list" class="cr-warning-list"></ul>
+        </section>
+
+        <section id="ar-result" hidden>
+          <div class="result-meta">
+            <span id="ar-summary"></span>
+            <span class="result-actions">
+              <span id="ar-download" class="cr-download" role="status"></span>
+              <span id="ar-retrieved"></span>
+            </span>
+          </div>
+          <div id="ar-sheet-tabs" class="cr-sheet-tabs" role="tablist" aria-label="Sheets"></div>
+          <div class="cr-sheet-meta">
+            <span id="ar-sheet-summary"></span>
+            <span class="result-actions">
+              <button type="button" id="ar-expand-all" class="secondary">Expand all</button>
+              <button type="button" id="ar-collapse-all" class="secondary">Collapse all</button>
+            </span>
+          </div>
+          <div id="ar-sheet-heading" class="cr-sheet-heading" hidden></div>
+          <div class="matrix-wrap" id="ar-table-panel" role="tabpanel">
+            <table id="ar-table" class="matrix cr-tree"></table>
+          </div>
+          <p id="ar-row-cap" class="hint cr-row-cap" hidden></p>
+          <div id="ar-notes" class="cr-notes" hidden></div>
+        </section>
+
+        <p id="ar-empty-hint" class="hint">Choose the filter and a template, then press <strong>Generate</strong>: you get a preview here and one .xlsx download.</p>
+      </section>
+
+      <!-- List: a look-alike of Jira's List view (work items, hierarchy, filter, group, columns). Built by web/list/tab.ts. -->
+      <section id="tab-list" class="ls" role="tabpanel" aria-labelledby="tabbtn-list" hidden>
+        <div class="ls-bar">
+          <div class="filters ls-filters">
+            <div class="field field-users">
+              <span id="ls-projects-label">Projects</span>
+              <div id="ls-projects"></div>
+            </div>
+            <div class="field field-users">
+              <span id="ls-users-label">Users</span>
+              <div id="ls-users"></div>
+            </div>
+          </div>
+          <div class="ls-tools" id="ls-tools"></div>
+        </div>
+        <p id="ls-meta-error" class="notice notice-warn" hidden></p>
+        <p id="ls-error" class="notice notice-error" role="alert" hidden></p>
+        <p id="ls-info" class="notice notice-warn" role="status" hidden></p>
+        <div id="ls-loading" class="loading" hidden>
+          <span class="spinner" aria-hidden="true"></span>
+          <span>Loading work items…</span>
+        </div>
+        <div class="matrix-wrap ls-wrap" id="ls-wrap" hidden>
+          <table id="ls-table" class="ls-table"></table>
+        </div>
+        <p id="ls-footer" class="ls-footer" hidden></p>
+        <p id="ls-hint" class="hint">Pick a project or a user to list its work items.</p>
+      </section>
+
+      <!-- Team Reports: a look-alike of Jira's "Team Reports" page (filters on the left, Group By / period / format / zone on top). -->
+      <section id="tab-team" class="tr" role="tabpanel" aria-labelledby="tabbtn-team" hidden>
+        <p id="tr-meta-error" class="notice notice-warn" hidden></p>
+        <div class="tr-layout">
+          <aside class="tr-side" aria-label="Report filters">
+            <form id="tr-form" class="tr-form" novalidate>
+              <div class="tr-dates">
+                <label>
+                  <span>From <abbr title="required">*</abbr></span>
+                  <input type="date" id="tr-from" required />
+                </label>
+                <label>
+                  <span>To <abbr title="required">*</abbr></span>
+                  <input type="date" id="tr-to" required />
+                </label>
+              </div>
+              <div class="field">
+                <span id="tr-projects-label">Projects</span>
+                <div id="tr-projects"></div>
+              </div>
+              <div class="field">
+                <span id="tr-people-label">Users &amp; Groups</span>
+                <div id="tr-people"></div>
+              </div>
+              <label class="tr-area">
+                <span>JQL Issue Filter</span>
+                <textarea id="tr-jql" rows="2" spellcheck="false" autocomplete="off"></textarea>
+                <small>Type JQL statement e.g. 'issue=DEMO-1'</small>
+              </label>
+              <label class="tr-area">
+                <span>Extra JQL</span>
+                <textarea id="tr-extra-jql" rows="2" spellcheck="false" autocomplete="off"></textarea>
+                <small>Type JQL statement to get additional issues without work logs</small>
+              </label>
+              <div class="fav-actions tr-fav-actions">
+                <button type="button" id="tr-fav-save" class="secondary" disabled>Save Favourite</button>
+                <button type="button" id="tr-fav-list" class="secondary">Favourite List</button>
+              </div>
+              <button type="submit" id="tr-generate">Generate Report</button>
+            </form>
+          </aside>
+
+          <div class="tr-main">
+            <button type="button" id="tr-panel-toggle" class="tr-toggle" aria-expanded="true" aria-controls="tr-form" title="Hide filters">‹</button>
+
+            <div class="tr-topbar">
+              <div class="tr-export">
+                <button type="button" id="tr-export" class="secondary" aria-haspopup="true" aria-expanded="false" disabled>Export</button>
+                <div id="tr-export-menu" class="tr-menu" role="menu" hidden>
+                  <button type="button" id="tr-export-excel" role="menuitem" disabled>To Excel File</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="tr-controls">
+              <div class="field tr-groupby">
+                <span id="tr-groupby-label">Group By</span>
+                <div id="tr-groupby"></div>
+              </div>
+              <label class="tr-select">
+                <span>Period Grouping</span>
+                <select id="tr-period"></select>
+              </label>
+              <label class="tr-select">
+                <span>Time Format</span>
+                <select id="tr-format"></select>
+              </label>
+              <label class="tr-select">
+                <span>Time Zone</span>
+                <select id="tr-zone"></select>
+              </label>
+            </div>
+
+            <p id="tr-error" class="notice notice-error" role="alert" hidden></p>
+            <p id="tr-info" class="notice notice-warn" role="status" hidden></p>
+            <p id="tr-fav-notice" class="notice notice-warn" role="status" hidden></p>
+
+            <div id="tr-loading" class="loading" hidden>
+              <span class="spinner" aria-hidden="true"></span>
+              <span id="tr-loading-text" aria-live="polite">Generating report…</span>
+              <progress id="tr-loading-bar" max="1" value="0" hidden></progress>
+              <button type="button" id="tr-cancel" class="secondary">Cancel</button>
+            </div>
+
+            <section id="tr-incomplete" class="notice notice-error" hidden role="alert">
+              <strong>⚠ Incomplete report</strong>
+              <span>— worklogs could not be fetched for these issues, so the totals below are too low:</span>
+              <code id="tr-failed-keys"></code>
+              <span id="tr-failure-reasons" class="reasons"></span>
+              <button type="button" id="tr-retry">Retry</button>
+            </section>
+
+            <section id="tr-warnings" class="notice notice-warn" hidden role="status">
+              <strong>Note</strong>
+              <ul id="tr-warning-list" class="cr-warning-list"></ul>
+            </section>
+
+            <section id="tr-result" hidden>
+              <div class="tr-table-wrap">
+                <table id="tr-table" class="tr-table"></table>
+              </div>
+              <p class="tr-retrieved"><span id="tr-retrieved"></span></p>
+            </section>
+
+            <p id="tr-empty-hint" class="hint">Pick a date range and press <strong>Generate Report</strong>.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Team Reports for all your sites (web/teamall/tab.ts): the Team Reports page, reading every selected site and merging them. -->
+      <section id="tab-teamall" class="tr" role="tabpanel" aria-labelledby="tabbtn-teamall" hidden>
+        <p id="ta-meta-error" class="notice notice-warn" hidden></p>
+        <div class="tr-layout">
+          <aside class="tr-side" aria-label="Report filters">
+            <form id="ta-form" class="tr-form" novalidate>
+              <div class="tr-dates">
+                <label>
+                  <span>From <abbr title="required">*</abbr></span>
+                  <input type="date" id="ta-from" required />
+                </label>
+                <label>
+                  <span>To <abbr title="required">*</abbr></span>
+                  <input type="date" id="ta-to" required />
+                </label>
+              </div>
+              <div class="field">
+                <span id="ta-sites-label">Sites</span>
+                <div id="ta-sites"></div>
+              </div>
+              <div class="field">
+                <span id="ta-projects-label">Projects</span>
+                <div id="ta-projects"></div>
+              </div>
+              <div class="field">
+                <span id="ta-people-label">Users &amp; Groups</span>
+                <div id="ta-people"></div>
+              </div>
+              <label class="tr-area">
+                <span>JQL Issue Filter</span>
+                <textarea id="ta-jql" rows="2" spellcheck="false" autocomplete="off"></textarea>
+                <small>Type JQL statement e.g. 'issue=DEMO-1'</small>
+              </label>
+              <label class="tr-area">
+                <span>Extra JQL</span>
+                <textarea id="ta-extra-jql" rows="2" spellcheck="false" autocomplete="off"></textarea>
+                <small>Type JQL statement to get additional issues without work logs</small>
+              </label>
+              <div class="fav-actions tr-fav-actions">
+                <button type="button" id="ta-fav-save" class="secondary" disabled>Save Favourite</button>
+                <button type="button" id="ta-fav-list" class="secondary">Favourite List</button>
+              </div>
+              <button type="submit" id="ta-generate">Generate Report</button>
+            </form>
+          </aside>
+
+          <div class="tr-main">
+            <button type="button" id="ta-panel-toggle" class="tr-toggle" aria-expanded="true" aria-controls="ta-form" title="Hide filters">‹</button>
+
+            <div class="tr-topbar">
+              <div class="tr-export">
+                <button type="button" id="ta-export" class="secondary" aria-haspopup="true" aria-expanded="false" disabled>Export</button>
+                <div id="ta-export-menu" class="tr-menu" role="menu" hidden>
+                  <button type="button" id="ta-export-excel" role="menuitem" disabled>To Excel File</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="tr-controls">
+              <label class="tr-select">
+                <span>Group by</span>
+                <select id="ta-preset"></select>
+              </label>
+              <div class="field tr-groupby">
+                <span id="ta-groupby-label">Group By (fields)</span>
+                <div id="ta-groupby"></div>
+              </div>
+              <label class="tr-select">
+                <span>Period Grouping</span>
+                <select id="ta-period"></select>
+              </label>
+              <label class="tr-select">
+                <span>Time Format</span>
+                <select id="ta-format"></select>
+              </label>
+              <label class="tr-select">
+                <span>Time Zone</span>
+                <select id="ta-zone"></select>
+              </label>
+            </div>
+
+            <p id="ta-error" class="notice notice-error" role="alert" hidden></p>
+            <p id="ta-info" class="notice notice-warn" role="status" hidden></p>
+            <p id="ta-fav-notice" class="notice notice-warn" role="status" hidden></p>
+
+            <div id="ta-loading" class="loading" hidden>
+              <span class="spinner" aria-hidden="true"></span>
+              <span id="ta-loading-text" aria-live="polite">Generating report…</span>
+              <progress id="ta-loading-bar" max="1" value="0" hidden></progress>
+              <button type="button" id="ta-cancel" class="secondary">Cancel</button>
+            </div>
+
+            <section id="ta-incomplete" class="notice notice-error" hidden role="alert">
+              <strong>⚠ Incomplete report</strong>
+              <span>— worklogs could not be fetched for these issues, so the totals below are too low:</span>
+              <code id="ta-failed-keys"></code>
+              <span id="ta-failure-reasons" class="reasons"></span>
+              <button type="button" id="ta-retry">Retry</button>
+            </section>
+
+            <section id="ta-warnings" class="notice notice-warn" hidden role="status">
+              <strong>Note</strong>
+              <ul id="ta-warning-list" class="cr-warning-list"></ul>
+            </section>
+
+            <section id="ta-result" hidden>
+              <div class="tr-table-wrap">
+                <table id="ta-table" class="tr-table"></table>
+              </div>
+              <p class="tr-retrieved"><span id="ta-retrieved"></span></p>
+            </section>
+
+            <p id="ta-empty-hint" class="hint">Pick a date range and press <strong>Generate Report</strong>.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="drill" class="drill" aria-labelledby="drill-title">
+      <div class="drill-head">
+        <div>
+          <h2 id="drill-title"></h2>
+          <p id="drill-date" class="drill-date"></p>
+        </div>
+        <button type="button" id="drill-close" class="drill-close" aria-label="Close">×</button>
+      </div>
+      <div class="drill-body">
+        <table id="drill-table" class="drill-table"></table>
+      </div>
+    </dialog>
+
+    </div>
+
+    <dialog id="tr-fav" class="drill" aria-labelledby="tr-fav-title">
+      <div class="drill-head">
+        <h2 id="tr-fav-title">Favourite groups</h2>
+        <button type="button" id="tr-fav-close" class="drill-close" aria-label="Close">×</button>
+      </div>
+      <div class="drill-body">
+        <table id="tr-fav-table" class="drill-table"></table>
+      </div>
+    </dialog>
+
+    <dialog id="ta-fav" class="drill" aria-labelledby="ta-fav-title">
+      <div class="drill-head">
+        <h2 id="ta-fav-title">Favourite groups</h2>
+        <button type="button" id="ta-fav-close" class="drill-close" aria-label="Close">×</button>
+      </div>
+      <div class="drill-body">
+        <table id="ta-fav-table" class="drill-table"></table>
+      </div>
+    </dialog>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
