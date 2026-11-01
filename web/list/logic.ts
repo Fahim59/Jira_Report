@@ -52,12 +52,18 @@ export const BUILTIN_VALUE: Readonly<Record<string, (r: ListRowData) => string>>
   issuekey: (r) => r.key,
 };
 
-/** The text of one cell, durations written the Jira way. */
+/** Seconds as plain hours, max 2 decimals: 288000 → "80", 5400 → "1.5"; "" for empty / zero. */
+export function formatHours(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '';
+  return String(Math.round((seconds / 3600) * 100) / 100);
+}
+
+/** The text of one cell, durations written as hours. */
 export function cellText(row: ListRowData, fieldId: string): string {
   const raw = BUILTIN_VALUE[fieldId]?.(row) ?? row.values[fieldId] ?? '';
   if (DURATION_FIELDS.has(fieldId)) {
     const n = Number(raw);
-    return raw !== '' && Number.isFinite(n) ? formatDuration(n) : '';
+    return raw !== '' && Number.isFinite(n) ? formatHours(n) : '';
   }
   return raw;
 }

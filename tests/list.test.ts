@@ -46,7 +46,7 @@ describe('formatDuration', () => {
   });
   it('cellText formats the time fields only', () => {
     const r = row('A-1', { values: { timespent: '21600', labels: 'x, y', customfield_1: '5' } });
-    expect(cellText(r, 'timespent')).toBe('6 hours');
+    expect(cellText(r, 'timespent')).toBe('6');
     expect(cellText(r, 'customfield_1')).toBe('5');
     expect(cellText(r, 'status')).toBe('To Do');
     expect(cellText(r, 'aggregatetimespent')).toBe('');
