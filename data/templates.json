@@ -1,0 +1,198 @@
+{
+  "version": 2,
+  "defaults": {},
+  "templates": [
+    {
+      "name": "MAS_Time Report",
+      "defaults": {
+        "projects": [],
+        "authors": []
+      },
+      "sheets": [
+        {
+          "name": "Report",
+          "rows": {
+            "mode": "group",
+            "groupBy": [
+              {
+                "fieldId": "issue.key",
+                "label": "Issue"
+              },
+              {
+                "fieldId": "issue.keySummary",
+                "label": "Summary"
+              },
+              {
+                "fieldId": "status",
+                "label": "Status"
+              }
+            ]
+          },
+          "columns": [],
+          "totals": true,
+          "period": "none",
+          "format": "hours",
+          "sumSubtasksToParent": false,
+          "sort": "value",
+          "filter": {
+            "conditions": []
+          },
+          "totalColumns": "everyLevel",
+          "totalLabel": "Total",
+          "subtotalRows": false,
+          "includeIssuesWithoutWorklogs": false,
+          "mergeGroupCells": false,
+          "headerStyle": "standard",
+          "notes": []
+        },
+        {
+          "name": "Work logs",
+          "rows": {
+            "mode": "eachWorklog"
+          },
+          "columns": [
+            {
+              "fieldId": "worklog.author",
+              "label": "Author"
+            },
+            {
+              "fieldId": "issue.key",
+              "label": "Issue"
+            },
+            {
+              "fieldId": "summary",
+              "label": "Issue Summary"
+            },
+            {
+              "fieldId": "worklog.started",
+              "label": "Work log started"
+            },
+            {
+              "fieldId": "worklog.created",
+              "label": "Work log created"
+            },
+            {
+              "fieldId": "metric.hours",
+              "label": "Time Spent"
+            },
+            {
+              "fieldId": "worklog.comment",
+              "label": "Worklog Comment"
+            }
+          ],
+          "totals": true,
+          "period": "none",
+          "format": "hours",
+          "sumSubtasksToParent": false,
+          "sort": "value",
+          "filter": {
+            "conditions": []
+          },
+          "totalColumns": "everyLevel",
+          "totalLabel": "Total",
+          "subtotalRows": false,
+          "includeIssuesWithoutWorklogs": false,
+          "mergeGroupCells": false,
+          "headerStyle": "standard",
+          "notes": []
+        }
+      ],
+      "id": "38bddd51-780e-4cc1-83cd-d81f4da39de3",
+      "site": "masdirect",
+      "updatedAt": "2026-10-21T17:38:28.617Z"
+    },
+    {
+      "id": "b212d4f1-bd5f-4410-b691-3da4c4b29005",
+      "site": "pm23",
+      "updatedAt": "2026-10-21T17:48:04.180Z",
+      "name": "IIA Client Report",
+      "defaults": {
+        "projects": [
+          "IOIA"
+        ],
+        "authors": [
+          "712020:d7e19672-41f2-4795-bd2a-bbd363981ac3",
+          "62c3cce3efb17d6ce62eb173",
+          "614e29725f54810068e38139"
+        ]
+      },
+      "sheets": [
+        {
+          "name": "Report",
+          "rows": {
+            "mode": "group",
+            "groupBy": [
+              {
+                "fieldId": "worklog.author",
+                "label": "User"
+              },
+              {
+                "fieldId": "issue.key",
+                "label": "Issue ID"
+              },
+              {
+                "fieldId": "summary",
+                "label": "Issue"
+              }
+            ]
+          },
+          "columns": [
+            {
+              "fieldId": "customfield_10820",
+              "label": "Client Reference",
+              "extract": "TPX-\\d+"
+            }
+          ],
+          "totals": true,
+          "period": "none",
+          "format": "hours",
+          "sumSubtasksToParent": false,
+          "sort": "value",
+          "filter": {
+            "conditions": []
+          },
+          "totalColumns": "lastLevel",
+          "totalLabel": "Hours",
+          "subtotalRows": false,
+          "includeIssuesWithoutWorklogs": false,
+          "mergeGroupCells": false,
+          "headerStyle": "standard",
+          "notes": []
+        },
+        {
+          "name": "Work logs",
+          "rows": {
+            "mode": "group",
+            "groupBy": [
+              {
+                "fieldId": "worklog.author",
+                "label": "User"
+              }
+            ]
+          },
+          "columns": [
+            {
+              "fieldId": "metric.issueCount",
+              "label": "Issues"
+            }
+          ],
+          "totals": true,
+          "period": "none",
+          "format": "hours",
+          "sumSubtasksToParent": false,
+          "sort": "value",
+          "filter": {
+            "conditions": []
+          },
+          "totalColumns": "lastLevel",
+          "totalLabel": "Spent Hours",
+          "subtotalRows": false,
+          "includeIssuesWithoutWorklogs": false,
+          "mergeGroupCells": false,
+          "headerStyle": "standard",
+          "notes": []
+        }
+      ]
+    }
+  ]
+}
