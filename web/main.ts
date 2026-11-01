@@ -5,6 +5,7 @@ import { closeOnOutsideClick, migrateStoredFavourites } from './favourites.js';
 import { setupList } from './list/tab.js';
 import { isSiteLocked } from './site-lock.js';
 import { setupLogin } from './login.js';
+import { syncSettings } from './settings-sync.js';
 import { currentAuth, rememberAccountId, signOut } from './session.js';
 import { setupTeamReports } from './team/tab.js';
 import { chooseSite, loadLastSite, saveLastSite } from './sites-logic.js';
@@ -169,6 +170,13 @@ selectTab(TABS.find((t) => t === storedTab) ?? 'team');
 
 /** Loads the site list. Runs once the user is signed in (every call needs their credentials). */
 function bootstrap(): void {
+  // Saved List columns / favourites come from the server file; the tabs read them at start-up, so reload once if they changed.
+  syncSettings().then(
+    (changed) => {
+      if (changed) window.location.reload();
+    },
+    () => {},
+  );
   getSites().then(
     (list) => {
       populateSites(list);

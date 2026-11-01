@@ -52,6 +52,9 @@ export interface TemplateStore {
   clearDefault(id: string, site?: string): Promise<DefaultPointer>;
   /** The site's default (a saved template id or a built-in id), if it names one that exists. */
   defaultId(site: string): Promise<string | undefined>;
+  /** Browser choices kept in the same file (List columns, favourites): localStorage key → value. */
+  settings(): Promise<Record<string, string>>;
+  setSetting(key: string, value: string): Promise<void>;
 }
 
 export interface DefaultPointer {
@@ -76,6 +79,8 @@ const FileSchema = z.union([
     version: z.literal(FILE_VERSION),
     // Site key → default template id (saved or builtin:*).
     defaults: z.record(z.string(), z.string()).default({}),
+    // localStorage key → value (List columns, favourites); see routes/settings.ts.
+    settings: z.record(z.string(), z.string()).default({}),
     templates: z.array(z.unknown()),
   }),
 ]);
@@ -95,6 +100,8 @@ interface Loaded {
   invalid: unknown[];
   /** Site key → default id. May name a template that no longer exists (hand edit); defaultOf() checks. */
   defaults: Record<string, string>;
+  /** Browser choices (localStorage key → value), written back unchanged by template saves. */
+  settings: Record<string, string>;
 }
 
 const isStarterId = (id: string) => STARTER_TEMPLATES.some((s) => s.id === id);
@@ -165,6 +172,18 @@ export class FileTemplateStore implements TemplateStore {
 
   defaultId(site: string): Promise<string | undefined> {
     return this.exclusive(async () => defaultOf(await this.load(), site));
+  }
+
+  settings(): Promise<Record<string, string>> {
+    return this.exclusive(async () => ({ ...(await this.load()).settings }));
+  }
+
+  setSetting(key: string, value: string): Promise<void> {
+    return this.exclusive(async () => {
+      const data = await this.load();
+      data.settings[key] = value;
+      await this.save(data);
+    });
   }
 
   create(site: string, body: TemplateBody): Promise<Template> {
@@ -243,7 +262,7 @@ export class FileTemplateStore implements TemplateStore {
     try {
       text = await this.fs.readFile(this.file, 'utf8');
     } catch (err) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { templates: [], invalid: [], defaults: {} };
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { templates: [], invalid: [], defaults: {}, settings: {} };
       throw err;
     }
     let parsed: z.infer<typeof FileSchema>;
@@ -253,9 +272,14 @@ export class FileTemplateStore implements TemplateStore {
       const aside = `${this.file}.corrupt-${(this.opts.now?.() ?? new Date()).toISOString().replace(/[:.]/g, '-')}`;
       await this.fs.rename(this.file, aside);
       this.opts.onWarn?.(`Template file ${basename(this.file)} was not valid JSON for this app; moved to ${basename(aside)}. Starting with no saved templates.`);
-      return { templates: [], invalid: [], defaults: {} };
+      return { templates: [], invalid: [], defaults: {}, settings: {} };
     }
-    const out: Loaded = { templates: [], invalid: [], defaults: parsed.version === 1 ? {} : { ...parsed.defaults } };
+    const out: Loaded = {
+      templates: [],
+      invalid: [],
+      defaults: parsed.version === 1 ? {} : { ...parsed.defaults },
+      settings: parsed.version === 1 ? {} : { ...parsed.settings },
+    };
     const ids = new Set<string>();
     for (const entry of parsed.templates) {
       const t = StoredTemplateSchema.safeParse(entry);
@@ -278,7 +302,7 @@ export class FileTemplateStore implements TemplateStore {
     const { fs } = this;
     await fs.mkdir(dirname(this.file), { recursive: true });
     const tmp = join(dirname(this.file), `.${basename(this.file)}.${process.pid}.${randomUUID()}.tmp`);
-    const json = `${JSON.stringify({ version: FILE_VERSION, defaults: data.defaults, templates: [...data.templates, ...data.invalid] }, null, 2)}\n`;
+    const json = `${JSON.stringify({ version: FILE_VERSION, defaults: data.defaults, settings: data.settings, templates: [...data.templates, ...data.invalid] }, null, 2)}\n`;
     try {
       await fs.writeFile(tmp, json, 'utf8');
       await renameWithRetry(fs, tmp, this.file);

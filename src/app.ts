@@ -18,6 +18,7 @@ import { healthRoutes } from './routes/health.js';
 import { metaRoutes } from './routes/meta.js';
 import { reportRoutes } from './routes/report.js';
 import { templateRoutes } from './routes/templates.js';
+import { settingsRoutes } from './routes/settings.js';
 import { RunRegistry } from './services/runs.js';
 import { FileTemplateStore } from './services/templateStore.js';
 
@@ -58,6 +59,7 @@ export async function buildServer(cfg: Config, opts: { sites?: SiteEntry[]; logg
   await app.register(listRoutes, { sites, fields });
   const store = new FileTemplateStore(resolve(cfg.TEMPLATES_FILE), { onWarn: (msg) => app.log.warn(msg) });
   await app.register(templateRoutes, { sites, fields, store });
+  await app.register(settingsRoutes, { store });
 
   // Frontend (built by `npm run build:web`). Served only if the build output exists.
   if (existsSync(WEB_DIST)) {
