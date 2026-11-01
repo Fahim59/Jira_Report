@@ -2,7 +2,7 @@
 // so they can be committed and shipped to another deployment. The file is shared by everyone using the server.
 import { authorization } from './session.js';
 
-const SYNCED_KEYS = ['worklog-report:list-columns-2', 'worklog-report:favourites'];
+const SYNCED_KEYS = ['worklog-report:list-columns-2', 'worklog-report:favourites', 'worklog-report:list-views'];
 
 function store(): Storage | undefined {
   try {

@@ -5,7 +5,7 @@ import { z } from 'zod';
 import type { TemplateStore } from '../services/templateStore.js';
 
 /** The only localStorage keys the server keeps. */
-export const SYNCED_KEYS = ['worklog-report:list-columns-2', 'worklog-report:favourites'] as const;
+export const SYNCED_KEYS = ['worklog-report:list-columns-2', 'worklog-report:favourites', 'worklog-report:list-views'] as const;
 
 const PutBody = z.object({
   key: z.enum(SYNCED_KEYS),
